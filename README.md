@@ -5,16 +5,20 @@ Type any topic, watch two AI debaters argue it out live, get a judged verdict.
 Built with CrewAI (agent orchestration) + any OpenAI-compatible LLM provider + FastAPI
 (backend, SSE streaming) + plain HTML/CSS/JS with GSAP (frontend), deployed free on
 Hugging Face Spaces (Docker SDK). The LLM provider is chosen by the deployer via env
-vars (`OPENAI_API_BASE`, `OPENAI_API_KEY`, `MODEL_NAME`); the documented default is
+vars (`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `MODEL_NAME`); the documented default is
 Groq free tier so anyone can run it for free out of the box.
 
 ## Quick Start (Local)
 
+Requires Python 3.11–3.13 (CrewAI is incompatible with 3.14+). Uses [uv](https://docs.astral.sh/uv/)
+for env management — it hard-links packages from a global cache so multiple projects
+don't bloat disk.
+
 ```bash
-python -m venv venv
-source venv/bin/activate   # or venv\Scripts\activate on Windows
-pip install -r requirements.txt
-cp .env.example .env       # then add your Groq API key
+uv venv --python 3.13        # creates .venv/ (downloads Python 3.13 if needed)
+source .venv/bin/activate
+uv pip install -r requirements.txt
+cp .env.example .env         # then edit .env: set OPENAI_API_KEY (Groq key by default)
 uvicorn backend.main:app --reload --port 7860
 ```
 

@@ -8,13 +8,26 @@ the end.
 
 ## Phase 0 — Setup
 
-- [ ] Python 3.11+ virtualenv created
-- [ ] `crewai`, `fastapi`, `uvicorn[standard]`, `python-dotenv` installed (see requirements.txt in Spec 04 §5)
-- [ ] LLM provider configured via `.env`: `OPENAI_API_BASE`, `OPENAI_API_KEY`, `MODEL_NAME`
-      (documented default = Groq free tier; see Spec 01 §0). Never commit `.env`.
-- [ ] Repo initialized, `.gitignore` includes `.env`
+- [x] Repo restructured to AGENT.md §4 layout (docs at root, specs in `specs/`)
+- [x] `git init` done (baseline commit: docs + Phase 0 config)
+- [x] `.gitignore` includes `.env` and `.venv/`
+- [x] `requirements.txt`, `.env.example` written
+- [x] Python 3.13 environment created via **uv** (`uv venv --python 3.13` → `.venv/`,
+      uv-managed CPython 3.13.14). uv hard-links from a global cache so multiple
+      projects don't bloat disk — adopted as the standard for all projects.
+- [x] `crewai` 1.15.1, `fastapi`, `uvicorn[standard]`, `python-dotenv` installed
+      (`uv pip install -r requirements.txt`). Imports verified clean.
+- [ ] LLM provider configured: copy `.env.example` → `.env`, fill in `OPENAI_API_KEY`
+      (Groq key by default). Env vars are `OPENAI_BASE_URL`, `OPENAI_API_KEY`,
+      `MODEL_NAME` — see Spec 01 §0. Never commit `.env`.
 
-**Deviations:** (none yet)
+**Deviations:**
+- **2026-07-06 — Python version.** AGENT.md §3 targets Python 3.11+. The build machine's
+  system Python is 3.14.4, but CrewAI 1.15.1 requires `>=3.10, <3.14`. Resolved by using
+  uv to install a managed CPython 3.13.14 into `.venv/` (no system Python change needed).
+- **2026-07-06 — uv adopted for env management.** Original specs assumed plain
+  `python -m venv` + `pip`. Switched to `uv` globally (all projects) to avoid disk
+  bloat from per-project AI/ML dependency copies. `README.md` Quick Start updated.
 
 ---
 
@@ -24,7 +37,7 @@ the end.
 - [ ] `Debater Against` agent defined with role/goal/backstory
 - [ ] `Moderator/Judge` agent defined with role/goal/backstory
 - [ ] All three agents confirmed running against the deployer's chosen provider
-      (`openai/<MODEL_NAME>` prefix → `OPENAI_API_BASE` env; documented default Groq)
+      (shared `LLM` from `config.py` → `OPENAI_BASE_URL` env; documented default Groq)
 - [ ] Manual smoke test: run one full debate on a sample topic via CLI/script (no UI yet)
 
 **Deviations:** (none yet)
@@ -88,33 +101,50 @@ the end.
 
 ## Overall Status
 
-**Current phase:** Not started (pre-build; docs only)
-**Blockers:** None
-**Next action:** Begin Phase 0 setup (requires repo-structure decision — see note below)
+**Current phase:** Phase 0 nearly complete (env + deps done; only `.env` key entry remains)
+**Blockers:** None (user needs to add their Groq key to `.env` to run anything)
+**Next action:** Add Groq key to `.env`, then begin Phase 1 (agents & crew)
 
 ### Logged deviation (pre-build, 2026-07-06): LLM provider made provider-agnostic
 
 **What changed:** Originally AGENT.md §2 point 2 and §3 locked the LLM to Groq free tier
 (`groq/llama-3.3-70b-versatile`). The user decided the app should support **any
-OpenAI-compatible provider**, chosen by the deployer via three env vars:
-`OPENAI_API_BASE`, `OPENAI_API_KEY`, `MODEL_NAME`. Agents reference the model via the
-`openai/<MODEL_NAME>` LiteLLM prefix; LiteLLM routes to whatever base URL the deployer
-set. Groq remains the documented default in `.env.example` so anyone can still run it
-for free out of the box.
+OpenAI-compatible provider**, chosen by the deployer via three env vars. Groq remains
+the documented default in `.env.example` so anyone can still run it for free out of the
+box.
 
 **Why:** Flexibility — a deployer can point at Groq / OpenAI / OpenRouter / Ollama /
 LM Studio / etc. by editing `.env`, with zero code changes. Cost is the deployer's
 responsibility; the app itself imposes no paid-API requirement.
 
-**Specs updated to match (no stale files):**
-- `AGENT.md` §2 point 2, §3 LLM + env rows, §6 (also fixed stale "Gradio textbox" line)
-- `01-agents-and-crew.md` §0 added; all three agents' `llm:` lines
-- `02-orchestration-and-flow.md` §2 + §4
-- `04-deployment-hf-spaces-docker.md` §6
-- `05-error-handling-and-limits.md` §2 + §4
-- `README.md` stack blurb
-- This file's Phase 0 checklist (removed stale `gradio` dep line)
-
 **Note:** "Free hosting only" (AGENT.md §2 point 1) still holds — HF Spaces free CPU
 tier is unchanged. Only the LLM-cost constraint is relaxed, and only to the extent the
 *deployer* opts into a paid provider by their own env choice.
+
+### Logged deviation (pre-build, 2026-07-06): CrewAI 1.15.1 has dropped LiteLLM
+
+**What changed:** The initial provider-agnostic design (and the first revision of these
+specs) assumed CrewAI uses LiteLLM and routes via an `openai/<MODEL_NAME>` prefix reading
+`OPENAI_API_BASE`. On installing CrewAI 1.15.1 and inspecting it, neither is true:
+
+- CrewAI 1.15.1 has **no LiteLLM dependency** (litellm is not in the venv).
+- The model-string prefix (`openai/`, `ollama/`, `openrouter/`, `deepseek/`, `cerebras/`,
+  `dashscope/`, `hosted_vllm/`) routes through CrewAI's own provider registry.
+- **Groq is NOT a built-in provider** in that registry, so a `groq/...` prefix won't work.
+
+**Corrected approach (Option A — shared LLM in `config.py`):** `backend/config.py`
+constructs one `crewai.LLM(model=os.getenv("MODEL_NAME"), base_url=os.getenv("OPENAI_BASE_URL"),
+api_key=os.getenv("OPENAI_API_KEY"))` and passes it to every agent. The model id is
+**bare** (no prefix); the endpoint is set via `base_url=`. The env var is `OPENAI_BASE_URL`
+(not `OPENAI_API_BASE`) — that's the name the OpenAI SDK reads.
+
+**Specs updated to match (no stale files):**
+- `AGENT.md` §2 point 2 (rewritten with implementation note), §3 LLM + env rows
+- `01-agents-and-crew.md` §0 (rewritten with `config.py` reference wiring); all three
+  agents' `llm:` lines now `(shared LLM from config.py; see §0)`
+- `02-orchestration-and-flow.md` §4 (env var name)
+- `04-deployment-hf-spaces-docker.md` §6 + §8 (env var name)
+- `05-error-handling-and-limits.md` §2 (env var name)
+- `README.md` Quick Start (uv) + stack blurb (env var name)
+- `.env.example` (rewritten: `OPENAI_BASE_URL`, bare model id)
+- This file's Phase 0 + Phase 1 checklists

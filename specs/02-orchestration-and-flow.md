@@ -83,7 +83,7 @@ Key points an implementing agent must not deviate from without logging it in PRO
 5 turns × 1 LLM call each = 5 requests per debate. Each request's prompt grows as the
 transcript grows (turn 5's moderator prompt includes all 4 prior turns). Before Phase 2
 is marked done, manually verify against the **deployer's chosen provider** (see
-AGENT.md §2 point 2 and Spec 01 §0 — the deployer sets `OPENAI_API_BASE` / `MODEL_NAME`):
+AGENT.md §2 point 2 and Spec 01 §0 — the deployer sets `OPENAI_BASE_URL` / `MODEL_NAME`):
 - Total tokens for the largest single request (moderator verdict) stays comfortably
   under the chosen provider's context window and per-minute rate limits
 - 5 sequential requests complete in a reasonable total wall-clock time for a live demo

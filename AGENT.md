@@ -22,16 +22,25 @@ product. Do not add scope beyond this without explicit sign-off.
 1. **Free hosting only.** Target platform is Hugging Face Spaces, Docker SDK, free CPU
    tier. No paid infra of any kind is acceptable at any phase.
 2. **LLM = any OpenAI-compatible provider, chosen by the deployer.** The code is
-   provider-agnostic. The deployer sets three env vars in `.env` (or HF Spaces
-   "Repository secrets"): `OPENAI_API_BASE`, `OPENAI_API_KEY`, and `MODEL_NAME`.
-   CrewAI agents reference the model via the `openai/<MODEL_NAME>` LiteLLM prefix,
-   which LiteLLM routes to whatever base URL the deployer configured. This works with
-   Groq, OpenAI, OpenRouter, Together, Ollama, LM Studio, etc. — anything that speaks
-   the OpenAI Chat Completions API. The **documented default in `.env.example` is Groq
-   free tier** (`https://api.groq.com/openai/v1` + `llama-3.3-70b-versatile`) so a
-   deployer can run end-to-end for free; swapping providers is an env change, not a
-   code change. Cost is the deployer's responsibility — the app itself imposes no
-   paid-API requirement, but a deployer pointing at a paid provider will incur costs.
+   provider-agnostic. `backend/config.py` constructs **one shared `crewai.LLM`** at
+   startup from three env vars and passes it to every agent — agents never construct
+   their own LLM. The deployer sets (in `.env` locally, or HF Spaces "Repository
+   secrets" in prod): `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `MODEL_NAME`. This works
+   with Groq, OpenAI, OpenRouter, Together, Ollama, LM Studio, etc. — anything that
+   speaks the OpenAI Chat Completions API. The **documented default in `.env.example`
+   is Groq free tier** (`OPENAI_BASE_URL=https://api.groq.com/openai/v1` +
+   `MODEL_NAME=llama-3.3-70b-versatile`) so a deployer can run end-to-end for free;
+   swapping providers is an env change, not a code change. Cost is the deployer's
+   responsibility — the app itself imposes no paid-API requirement, but a deployer
+   pointing at a paid provider will incur costs.
+
+   > **Implementation note (CrewAI 1.15.1+).** CrewAI no longer depends on LiteLLM.
+   > The model string is passed *without* a provider prefix (just the bare model id,
+   > e.g. `llama-3.3-70b-versatile`), and the endpoint is set via the `base_url`
+   argument to `LLM(...)`. Do **not** use `openai/<MODEL_NAME>` or `groq/...` prefixes
+   > — those route through CrewAI's prefix-based provider lookup and Groq is not a
+   > built-in provider there. The single shared `LLM` is the only correct entry
+   > point; see Spec 01 §0.
 3. **Frontend = plain HTML/CSS/JS, no framework.** No Vue, no React. GSAP is used
    directly via `<script>` tag for animation. No build step, no bundler, no npm
    install required to run the frontend — it's static files served as-is.
@@ -60,12 +69,12 @@ product. Do not add scope beyond this without explicit sign-off.
 | Layer | Choice | Why |
 |---|---|---|
 | Agent orchestration | CrewAI (latest stable) | Multi-agent framework, this is the whole point of the project |
-| LLM | Any OpenAI-compatible provider via `openai/` LiteLLM prefix; model/base/key from env (`OPENAI_API_BASE`, `OPENAI_API_KEY`, `MODEL_NAME`). Documented default: Groq `llama-3.3-70b-versatile` free tier | Provider-agnostic = deployer picks Groq / OpenAI / OpenRouter / Ollama / etc. without code changes; Groq remains the free default so anyone can run it for free out of the box |
+| LLM | Any OpenAI-compatible provider via one shared `crewai.LLM` built in `config.py` from env (`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `MODEL_NAME`). Documented default: Groq `llama-3.3-70b-versatile` free tier | Provider-agnostic = deployer picks Groq / OpenAI / OpenRouter / Ollama / etc. without code changes; Groq remains the free default so anyone can run it for free out of the box. CrewAI 1.15.1+ has no LiteLLM dependency — bare model id + `base_url` arg, no provider prefix |
 | Backend | FastAPI | Wraps orchestration logic, exposes SSE endpoint for streaming turns to the browser |
 | Frontend | Plain HTML/CSS/JS + GSAP | No build step, GSAP handles turn-reveal/entrance animations, styling done via a UI/UX skill in the code assistant |
 | Hosting | Hugging Face Spaces (Docker SDK, CPU basic) | Free, runs a real FastAPI app instead of being limited to the Gradio SDK template |
 | Language | Python 3.11+ (backend), vanilla JS (frontend) | CrewAI/FastAPI are Python-native; frontend deliberately framework-free |
-| Env/secrets | `.env` locally (see `.env.example`), HF Spaces "Repository secrets" in prod | Never commit API keys. Env holds `OPENAI_API_BASE`, `OPENAI_API_KEY`, `MODEL_NAME` |
+| Env/secrets | `.env` locally (see `.env.example`), HF Spaces "Repository secrets" in prod | Never commit API keys. Env holds `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `MODEL_NAME` |
 
 Do not substitute any of these without updating this file first.
 

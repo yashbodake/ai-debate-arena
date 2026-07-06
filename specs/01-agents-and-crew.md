@@ -6,24 +6,43 @@ Defines the three agents. Read AGENT.md first — this spec cannot override its 
 
 ## 0. LLM Configuration (Provider-Agnostic)
 
-All three agents use the same `openai/<MODEL_NAME>` LiteLLM prefix. The actual provider
-is chosen by the **deployer** via env vars, not hardcoded here:
+All three agents share **one** `crewai.LLM` instance, constructed once in
+`backend/config.py` from env vars and passed into each `Agent(llm=...)`. Agents never
+build their own LLM. The provider is chosen by the **deployer** via env vars, not
+hardcoded anywhere:
 
 | Env var | Meaning | Documented default (`.env.example`) |
 |---|---|---|
-| `OPENAI_API_BASE` | Provider's OpenAI-compatible endpoint | `https://api.groq.com/openai/v1` |
+| `OPENAI_BASE_URL` | Provider's OpenAI-compatible endpoint | `https://api.groq.com/openai/v1` |
 | `OPENAI_API_KEY` | Key for that provider | (Groq free-tier key) |
-| `MODEL_NAME` | Model id, no prefix | `llama-3.3-70b-versatile` |
+| `MODEL_NAME` | Bare model id, **no prefix** | `llama-3.3-70b-versatile` |
 
-LiteLLM reads `OPENAI_API_BASE` + `OPENAI_API_KEY` automatically and routes the
-`openai/...` prefix to that base. So the same agent config works against Groq, OpenAI,
-OpenRouter, Together, Ollama (`http://localhost:11434/v1`), LM Studio, etc. — swapping
-providers is purely an `.env` change, never a code change.
+Reference wiring in `backend/config.py`:
 
-The agent YAML below therefore writes the model literally as `openai/<MODEL_NAME>` to
-make clear the model id comes from env at runtime. In the actual `backend/agents.py`
-implementation, substitute `os.getenv("MODEL_NAME")` — do not hardcode
-`llama-3.3-70b-versatile`.
+```python
+import os
+from crewai import LLM
+
+def get_llm() -> LLM:
+    return LLM(
+        model=os.getenv("MODEL_NAME", "llama-3.3-70b-versatile"),
+        base_url=os.getenv("OPENAI_BASE_URL"),
+        api_key=os.getenv("OPENAI_API_KEY"),
+    )
+```
+
+This works against Groq, OpenAI, OpenRouter, Together, Ollama
+(`http://localhost:11434/v1`), LM Studio, etc. — swapping providers is purely an
+`.env` change, never a code change.
+
+> **CrewAI 1.15.1+ note (no LiteLLM).** CrewAI dropped its LiteLLM dependency. Pass the
+> model as a **bare id** (`llama-3.3-70b-versatile`, not `openai/...` or `groq/...`)
+> and set the endpoint via the `base_url=` argument. Do **not** rely on a provider
+> prefix to route Groq — Groq is not one of CrewAI's built-in openai-compatible
+> providers, so the prefix path doesn't cover it; the explicit `base_url` does.
+
+The agent YAML below therefore writes `llm:` as `(shared, from config.py)` — the model
+id and endpoint come from env at runtime, not from anything in this file.
 
 ---
 
@@ -40,7 +59,7 @@ backstory: >
   and factual — no strawmanning, no personal attacks. You build on what's already
   been said rather than repeating your own earlier points. Keep each turn to 3-5
   sentences maximum; this is a live debate, not an essay.
-llm: openai/<MODEL_NAME>  # provider-agnostic; see §0 below
+llm: (shared LLM from config.py; see §0)
 allow_delegation: false
 verbose: true
 ```
@@ -58,7 +77,7 @@ backstory: >
   and factual — no strawmanning, no personal attacks. You build on what's already
   been said rather than repeating your own earlier points. Keep each turn to 3-5
   sentences maximum; this is a live debate, not an essay.
-llm: openai/<MODEL_NAME>  # provider-agnostic; see §0 below
+llm: (shared LLM from config.py; see §0)
 allow_delegation: false
 verbose: true
 ```
@@ -83,7 +102,7 @@ backstory: >
   one sentence each, then declare a winner (or explicitly say it was a close/tied
   debate if genuinely balanced) with 2-3 sentences of reasoning. Never declare a
   winner based on topic sensitivity or personal preference — only argument quality.
-llm: openai/<MODEL_NAME>  # provider-agnostic; see §0 below
+llm: (shared LLM from config.py; see §0)
 allow_delegation: false
 verbose: true
 ```

@@ -88,9 +88,9 @@ floating versions risk "works locally, breaks on Space" build failures.
 - Never commit `.env` or hardcode any API key
 - The app is provider-agnostic (see AGENT.md §2 point 2 and Spec 01 §0). The deployer
   sets three HF Spaces repository secrets — same three as the local `.env`:
-  - `OPENAI_API_BASE` — provider endpoint (documented default: `https://api.groq.com/openai/v1`)
+  - `OPENAI_BASE_URL` — provider endpoint (documented default: `https://api.groq.com/openai/v1`)
   - `OPENAI_API_KEY` — key for that provider
-  - `MODEL_NAME` — model id, no prefix (documented default: `llama-3.3-70b-versatile`)
+  - `MODEL_NAME` — bare model id, no prefix (documented default: `llama-3.3-70b-versatile`)
 - Code reads all three via `os.getenv(...)` — same local/prod code path
 - To switch providers (e.g. Groq → OpenAI → Ollama), change these three secrets on HF
   Spaces; no code change or redeploy of the image logic is needed (HF will rebuild the
@@ -111,7 +111,7 @@ Confirm during Phase 4 testing that:
 1. Create new Space on huggingface.co, SDK = Docker
 2. Push via git remote (HF Spaces are git repos) — include `Dockerfile`, `requirements.txt`,
    `backend/`, `frontend/`, `README.md` with correct frontmatter
-3. Add the three provider secrets (`OPENAI_API_BASE`, `OPENAI_API_KEY`, `MODEL_NAME`)
+3. Add the three provider secrets (`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `MODEL_NAME`)
    as repository secrets before first run — see §6
 4. Watch the build logs — Docker builds are more verbose than Gradio SDK builds,
    read errors carefully (most common: wrong port, missing dependency, path typo

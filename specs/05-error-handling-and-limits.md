@@ -14,7 +14,7 @@
 
 Wrap each `crew.kickoff()` call in a try/except. On failure (rate limit, timeout, network
 error, bad API key, unknown model name — i.e. anything raised by the underlying
-OpenAI-compatible provider the deployer configured via `OPENAI_API_BASE` /
+OpenAI-compatible provider the deployer configured via `OPENAI_BASE_URL` /
 `OPENAI_API_KEY` / `MODEL_NAME`):
 - Catch the exception at the orchestration layer (`run_debate` generator)
 - Yield a clear error message as that turn's "text" instead of crashing the generator,
