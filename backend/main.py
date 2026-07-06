@@ -22,13 +22,25 @@ from fastapi import FastAPI, Query
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from .config import MAX_TOPIC_LENGTH
+from .config import MAX_TOPIC_LENGTH, get_available_models
 from .crew import run_debate
 
 app = FastAPI(title="AI Debate Arena")
 
 # Resolve frontend/ relative to repo root (this file is at backend/main.py).
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
+
+@app.get("/models")
+def list_models():
+    """Return the model ids the deployer's provider exposes, for the frontend
+    dropdowns. Proxies config.get_available_models() (which calls the provider's
+    GET /v1/models). Returns [] if the provider can't be reached — the frontend
+    treats an empty list as "hide the dropdowns, default only".
+
+    Registered before the static mount so it isn't shadowed by the catch-all.
+    """
+    return {"models": get_available_models()}
 
 
 def _format_sse_event(data: dict, event: str | None = None) -> str:
@@ -42,17 +54,31 @@ def _format_sse_event(data: dict, event: str | None = None) -> str:
 
 
 @app.get("/debate")
-def debate_stream(topic: str = Query(default="", description="The debate topic")):
+def debate_stream(
+    topic: str = Query(default="", description="The debate topic"),
+    model_for: str | None = Query(default=None, description="Model id for the FOR debater (default if omitted)"),
+    model_against: str | None = Query(default=None, description="Model id for the AGAINST debater (default if omitted)"),
+):
     """Stream a debate turn-by-turn as SSE.
 
     Per Spec 03 §3, the topic comes in as a query param (EventSource only supports
     GET). Each turn arrives as `data: {"speaker":..., "text":...}`; the stream ends
     with `event: done`.
 
+    model_for / model_against (v1.1): optional model ids for the per-side selection
+    feature. Passed straight to run_debate; validation lives there (keeps the
+    Spec 02 §5 boundary intact — transport passes values through, orchestration
+    validates). Empty string is normalized to None so the default path is identical
+    whether the param is absent or blank.
+
     Input validation (Spec 05 §1):
     - empty/whitespace topic → single System turn, then done (no agent calls)
     - overlong topic → truncated to MAX_TOPIC_LENGTH (friendlier than rejecting)
     """
+    # Empty-string query params (e.g. ?model_for=) normalize to None = use default.
+    model_for = model_for or None
+    model_against = model_against or None
+
     cleaned = topic.strip()
     if not cleaned:
         # Friendly inline message, no agents called (Spec 05 §1 row 1).
@@ -72,7 +98,7 @@ def debate_stream(topic: str = Query(default="", description="The debate topic")
         # Spec 05 §2: wrap the whole stream so a mid-stream exception still sends a
         # final `event: done` rather than leaving the browser's EventSource hanging.
         try:
-            for speaker, text in run_debate(cleaned):
+            for speaker, text in run_debate(cleaned, model_for, model_against):
                 yield _format_sse_event({"speaker": speaker, "text": text})
         except Exception:
             # run_debate already converts per-turn LLM failures to a System turn and

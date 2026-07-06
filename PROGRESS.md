@@ -119,6 +119,38 @@ forward — latency still ~70s/5 turns)
 
 ---
 
+## Feature v1.1 — Per-side model selection
+
+Added after Phase 3. The end user can pick a different model for the For and
+Against debaters via dropdowns (Moderator stays on the default `MODEL_NAME`).
+Scope: one provider, one key (the deployer's) — only the model *id* varies per
+side. Does NOT change the deployer-controls-the-key constraint (AGENT.md §2.2).
+
+- [x] `config.get_llm(model_override=None)` — override builds a fresh LLM; None
+      returns the cached default (backward compatible)
+- [x] `config.get_available_models()` — calls provider's `GET /v1/models`,
+      cached, returns `[]` on failure (frontend hides dropdowns)
+- [x] `config.is_valid_model(name)` — None is always valid; otherwise checks
+      against the provider's list
+- [x] `agents.debater_for/against(model_override=None)` — moderator unchanged
+- [x] `crew.run_debate(topic, model_for=None, model_against=None)` — validates
+      overrides up front, yields friendly System turn on invalid id (no agent call)
+- [x] `main.py`: `GET /models` route + `/debate` accepts `model_for`/`model_against`
+      query params
+- [x] `frontend`: two `<select>` dropdowns in a `<details>` wrapper (collapsed by
+      default to preserve "just type a topic" UX), populated from `/models` on load,
+      hidden if provider returns no models
+- [x] E2E verified: For=`gemma-4-31b` + Against=`gpt-oss-120b` (two different models
+      in one debate) → 5 turns streamed correctly. Invalid id → friendly System turn.
+
+**Deviations:**
+- **2026-07-06 — Cerebras WAF blocks `Python-urllib` User-Agent.** `GET /v1/models`
+  via Python's urllib returned HTTP 403, while curl succeeded. Fixed by sending
+  `User-Agent: ai-debate-arena/1.0` in `config.get_available_models()`. Other
+  providers may not need this, but it's harmless and avoids a class of WAF issues.
+
+---
+
 ## Phase 4 — Deployment (Spec 04)
 
 - [ ] HF Space created (Docker SDK)
@@ -148,9 +180,9 @@ forward — latency still ~70s/5 turns)
 
 ## Overall Status
 
-**Current phase:** Phase 3 code complete — pending manual browser test by user
+**Current phase:** Phase 3 + v1.1 feature complete; pending manual browser test by user
 **Blockers:** None (user needs to open localhost:7860 in a browser to close Phase 3)
-**Next action:** User runs the server locally and does a browser test; then Phase 4 (deployment)
+**Next action:** User does a browser test (incl. per-side model dropdowns); then Phase 4 (deployment)
 
 ### Logged deviation (pre-build, 2026-07-06): LLM provider made provider-agnostic
 

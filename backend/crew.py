@@ -19,7 +19,7 @@ from typing import Callable
 from crewai import Crew, Process, Task
 
 from .agents import debater_against, debater_for, moderator
-from .config import NUM_DEBATE_ROUNDS
+from .config import NUM_DEBATE_ROUNDS, get_available_models, is_valid_model
 
 # A turn is a (speaker_label, text) tuple. The label is what the UI displays and
 # what the moderator's prompt uses as context; the text is the agent's output.
@@ -68,7 +68,11 @@ def _run_one_turn(agent, task) -> str:
     return str(result).strip()
 
 
-def run_debate(topic: str) -> Iterator[Turn]:
+def run_debate(
+    topic: str,
+    model_for: str | None = None,
+    model_against: str | None = None,
+) -> Iterator[Turn]:
     """Generator: yields (speaker_label, text) tuples, one per turn.
 
     Fixed 5-turn sequence per Spec 02 §2: For → Against → For → Against → Moderator
@@ -76,14 +80,33 @@ def run_debate(topic: str) -> Iterator[Turn]:
     later turn's agent sees as context (Spec 02 §3 key points — plain text, not
     CrewAI "memory").
 
+    model_for / model_against (v1.1 per-side selection): optional model ids to use
+    for the respective debaters, overriding MODEL_NAME from .env. None = use the
+    default. The moderator always uses the default model. Both overrides must be
+    valid models on the deployer's provider, else a friendly System turn is yielded
+    and the generator returns without calling any agent (fail fast).
+
     Error handling per Spec 05 §2: a mid-stream LLM failure yields a friendly System
     message and stops the generator — does NOT crash, does NOT leak a stack trace to
     the caller.
     """
-    # Instantiate agents once; the shared LLM inside each is the same instance via
-    # config.get_llm()'s lru_cache.
-    for_agent = debater_for()
-    against_agent = debater_against()
+    # Validate model overrides up front so we fail fast with a clear message instead
+    # of getting a provider 404 mid-stream on turn 1. None is always valid (default).
+    for label, model in (("For", model_for), ("Against", model_against)):
+        if not is_valid_model(model):
+            available = get_available_models()
+            hint = ", ".join(available) if available else "(provider returned no model list)"
+            yield (
+                "System",
+                f"Unknown model for {label} side: {model!r}. "
+                f"Available models: {hint}.",
+            )
+            return
+
+    # Instantiate agents once. The moderator uses the default LLM (fixed per the
+    # v1.1 design choice); debaters use the override if provided, else default.
+    for_agent = debater_for(model_for)
+    against_agent = debater_against(model_against)
     judge = moderator()
 
     transcript: list[str] = []

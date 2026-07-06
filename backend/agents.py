@@ -12,8 +12,12 @@ from crewai import Agent
 from .config import get_llm
 
 
-def _debater(role: str, goal: str, backstory: str) -> Agent:
-    """Construct a debater agent wired to the shared LLM, delegation disabled.
+def _debater(role: str, goal: str, backstory: str, model_override: str | None = None) -> Agent:
+    """Construct a debater agent, delegation disabled.
+
+    model_override: None → use the shared default LLM (the fast path); otherwise
+    build a fresh LLM for that specific model id (per-side selection feature, v1.1).
+    Same provider/key either way — only the model id varies.
 
     allow_delegation=False is mandatory per AGENT.md §2 point 8 — the moderator does
     NOT autonomously delegate, turn order is fixed in code (Spec 02).
@@ -22,7 +26,7 @@ def _debater(role: str, goal: str, backstory: str) -> Agent:
         role=role,
         goal=goal,
         backstory=backstory,
-        llm=get_llm(),
+        llm=get_llm(model_override),
         allow_delegation=False,
         verbose=True,
     )
@@ -39,8 +43,8 @@ _DEBATER_BACKSTORY = (
 )
 
 
-def debater_for() -> Agent:
-    """The FOR-side debater."""
+def debater_for(model_override: str | None = None) -> Agent:
+    """The FOR-side debater. Pass model_override to use a non-default model."""
     return _debater(
         role="Debater arguing FOR the topic",
         goal=(
@@ -49,11 +53,15 @@ def debater_for() -> Agent:
             "opposing side's prior points (if any exist yet in context)."
         ),
         backstory=_DEBATER_BACKSTORY,
+        model_override=model_override,
     )
 
 
-def debater_against() -> Agent:
-    """The AGAINST-side debater. Near-symmetric with FOR — only the stance differs."""
+def debater_against(model_override: str | None = None) -> Agent:
+    """The AGAINST-side debater. Near-symmetric with FOR — only the stance differs.
+
+    Pass model_override to use a non-default model.
+    """
     return _debater(
         role="Debater arguing AGAINST the topic",
         goal=(
@@ -62,6 +70,7 @@ def debater_against() -> Agent:
             "using clear logic and concrete examples."
         ),
         backstory=_DEBATER_BACKSTORY,
+        model_override=model_override,
     )
 
 

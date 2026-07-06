@@ -150,3 +150,58 @@ h1 {
   #topic-form { flex-direction: column; }
   #start-btn { width: 100%; }
 }
+
+/* --- v1.1: per-side model selection (collapsed by default) --- */
+#advanced {
+  margin-top: 1rem;
+  font-size: .88rem;
+}
+#advanced > summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  user-select: none;
+}
+#advanced > summary:hover { color: var(--text); }
+
+.model-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: .6rem;
+  flex-wrap: wrap;
+}
+.model-row label {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  flex: 1;
+  min-width: 180px;
+}
+.model-row span {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-weight: 600;
+}
+.for-color { color: var(--for); }
+.against-color { color: var(--against); }
+
+.model-row select {
+  padding: .5rem .6rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: .9rem;
+  font-family: inherit;
+}
+.model-row select:focus { outline: none; border-color: var(--accent); }
+.model-row select:disabled { opacity: .5; }
+
+.hint {
+  margin: .5rem 0 0;
+  font-size: .78rem;
+  color: var(--text-dim);
+}
+
+/* When JS determines the provider exposes no model list, it adds .hidden to
+   #advanced so the collapsed panel doesn't tease a feature that can't work. */

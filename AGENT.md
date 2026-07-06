@@ -41,6 +41,13 @@ product. Do not add scope beyond this without explicit sign-off.
    > — those route through CrewAI's prefix-based provider lookup and Groq is not a
    > built-in provider there. The single shared `LLM` is the only correct entry
    > point; see Spec 01 §0.
+   >
+   > **v1.1 extension — per-side model selection (optional).** The end user may pick
+   > different models for the For and Against debaters via UI dropdowns; the moderator
+   > always uses the default. This does NOT change the constraint above: still one
+   > provider, still the deployer's key in `.env` — only the model *id* varies per
+   > side, drawn from the same provider's `/v1/models` list. See PROGRESS.md "Feature
+   > v1.1".
 3. **Frontend = plain HTML/CSS/JS, no framework.** No Vue, no React. GSAP is used
    directly via `<script>` tag for animation. No build step, no bundler, no npm
    install required to run the frontend — it's static files served as-is.

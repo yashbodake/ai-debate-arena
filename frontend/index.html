@@ -26,6 +26,28 @@
         required
       >
       <button type="submit" id="start-btn">Start Debate</button>
+
+      <!-- v1.1 per-side model selection. Collapsed by default to preserve the
+           "just type a topic" UX; populated from /models by script.js, and
+           hidden entirely if the provider returns no model list. -->
+      <details id="advanced">
+        <summary>Advanced: choose models per side</summary>
+        <div class="model-row">
+          <label>
+            <span class="for-color">For</span>
+            <select id="model-for" disabled>
+              <option value="">Same as default</option>
+            </select>
+          </label>
+          <label>
+            <span class="against-color">Against</span>
+            <select id="model-against" disabled>
+              <option value="">Same as default</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint">The moderator always uses the default model.</p>
+      </details>
     </form>
 
     <div id="status" class="hidden">Debate in progress…</div>

@@ -14,6 +14,9 @@ Requires the server running on 127.0.0.1:7860. Start it with:
 
 Run:
     .venv/bin/python e2e_test.py
+
+v1.1 additions: /models endpoint, per-side model override (For ≠ Against), and
+invalid-model-id rejection.
 """
 
 from __future__ import annotations
@@ -32,13 +35,21 @@ VALID_SPEAKERS = {
 }
 
 
-def stream_debate(topic: str):
+def stream_debate(topic: str, model_for: str | None = None, model_against: str | None = None):
     """Hit /debate and yield (event_name, data_dict) tuples as they arrive.
 
     Mimics EventSource: reads the text/event-stream line by line, parsing SSE
     `event:` and `data:` fields. Raises on any malformed payload.
+
+    model_for / model_against (v1.1): optional per-side model overrides, sent as
+    query params exactly like the frontend does.
     """
-    url = f"{BASE_URL}/debate?topic={_urlencode(topic)}"
+    params = {"topic": topic}
+    if model_for:
+        params["model_for"] = model_for
+    if model_against:
+        params["model_against"] = model_against
+    url = f"{BASE_URL}/debate?" + "&".join(f"{k}={_urlencode(v)}" for k, v in params.items())
     # stream=True so we read incrementally as the server flushes turns — this is
     # what lets us assert turns arrive separately rather than buffered into one blob.
     req = Request(url, headers={"Accept": "text/event-stream"})
@@ -157,6 +168,58 @@ def test_xss_safety():
     print(f"      PASS — markup handled as data ({len(data_turns)} turns, no JSON break)")
 
 
+def test_models_endpoint():
+    """v1.1: /models must return a JSON list of the provider's available models."""
+    print("[5/7] /models endpoint returns provider's model list...")
+    with urlopen(f"{BASE_URL}/models", timeout=15) as r:
+        data = json.loads(r.read().decode("utf-8"))
+    assert_true(isinstance(data, dict) and "models" in data,
+                f"/models payload missing 'models' key: {data}")
+    models = data["models"]
+    assert_true(isinstance(models, list), f"/models 'models' must be a list, got {type(models)}")
+    if len(models) == 0:
+        print("      SKIP — provider returned no models (subsequent model tests will skip)")
+        return []
+    print(f"      PASS — {len(models)} models available: {models}")
+    return models
+
+
+def test_per_side_models(available_models):
+    """v1.1: pick two different models for For/Against, verify a real debate still
+    streams correctly with 5 turns and the right speaker sequence."""
+    print("[6/7] per-side model selection (For ≠ Against)...")
+    if len(available_models) < 2:
+        print("      SKIP — fewer than 2 models available, can't test per-side override")
+        return
+    topic = "Is space exploration worth the cost?"
+    model_for, model_against = available_models[0], available_models[1]
+    turns = list(stream_debate(topic, model_for=model_for, model_against=model_against))
+    data_turns = [d for name, d, _ in turns if name == "message"]
+    assert_true(len(data_turns) == 5,
+                f"expected 5 turns with per-side models, got {len(data_turns)}")
+    actual_seq = [d["speaker"] for d in data_turns]
+    expected_seq = ["Debater For", "Debater Against", "Debater For",
+                    "Debater Against", "Moderator — Final Verdict"]
+    assert_true(actual_seq == expected_seq,
+                f"per-side speaker sequence mismatch:\n  expected: {expected_seq}\n  actual:   {actual_seq}")
+    print(f"      PASS — For={model_for!r}, Against={model_against!r}, 5 turns streamed correctly")
+
+
+def test_invalid_model():
+    """v1.1: a bogus model id must yield a friendly System turn + done, no agent call."""
+    print("[7/7] invalid model id rejected with friendly System turn...")
+    turns = list(stream_debate("any topic", model_for="this-model-does-not-exist"))
+    data_turns = [d for name, d, _ in turns if name == "message"]
+    done_events = [name for name, _, _ in turns if name == "done"]
+    assert_true(len(data_turns) == 1, f"expected 1 System turn, got {len(data_turns)}")
+    assert_true(data_turns[0].get("speaker") == "System",
+                f"expected System speaker, got {data_turns[0].get('speaker')!r}")
+    assert_true("this-model-does-not-exist" in data_turns[0].get("text", ""),
+                f"System message should mention the bad model id: {data_turns[0].get('text')!r}")
+    assert_true(len(done_events) == 1, "stream should terminate with one 'done' event")
+    print(f"      PASS — bogus model id → '{data_turns[0]['text'][:60]}...' + done, no agent call")
+
+
 def main():
     print(f"=== E2E test against {BASE_URL} ===\n")
     # Reachability guard — gives a clearer error than a stack trace from urlopen.
@@ -175,6 +238,9 @@ def main():
         test_empty_topic()
         test_real_debate()
         test_xss_safety()
+        available = test_models_endpoint()
+        test_per_side_models(available)
+        test_invalid_model()
     except AssertionError as e:
         print(f"\n!!! E2E TEST FAILED: {e}", file=sys.stderr)
         return 1

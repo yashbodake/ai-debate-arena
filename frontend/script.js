@@ -6,8 +6,36 @@ const input = document.getElementById("topic-input");
 const status = document.getElementById("status");
 const transcript = document.getElementById("transcript");
 const startBtn = document.getElementById("start-btn");
+const modelForSelect = document.getElementById("model-for");
+const modelAgainstSelect = document.getElementById("model-against");
+const advancedPanel = document.getElementById("advanced");
 
 let currentSource = null; // track the open EventSource so we can close it on re-submit
+
+// v1.1: populate the per-side model dropdowns from the deployer's provider.
+// Hides the whole advanced panel if the provider can't be reached or returns no
+// models, so the default-only UX stays intact.
+populateModels();
+
+async function populateModels() {
+  try {
+    const res = await fetch("/models");
+    const { models } = await res.json();
+    if (!Array.isArray(models) || models.length === 0) {
+      advancedPanel.classList.add("hidden");
+      return;
+    }
+    for (const id of models) {
+      modelForSelect.add(new Option(id, id));
+      modelAgainstSelect.add(new Option(id, id));
+    }
+    modelForSelect.disabled = false;
+    modelAgainstSelect.disabled = false;
+  } catch {
+    // Provider unreachable or /models errored — keep the panel hidden, defaults only.
+    advancedPanel.classList.add("hidden");
+  }
+}
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
@@ -21,8 +49,13 @@ form.addEventListener("submit", (e) => {
   if (currentSource) currentSource.close();
 
   // Spec 03 §3: GET with topic as a query param. EventSource only supports GET.
-  const url = `/debate?topic=${encodeURIComponent(topic)}`;
-  const source = new EventSource(url);
+  // v1.1: append model_for / model_against only when the user picked a non-default
+  // model — empty string (the default option) is skipped so the URL stays clean
+  // and the backend sees None for that side (= use MODEL_NAME from .env).
+  const params = new URLSearchParams({ topic });
+  if (modelForSelect.value) params.set("model_for", modelForSelect.value);
+  if (modelAgainstSelect.value) params.set("model_against", modelAgainstSelect.value);
+  const source = new EventSource(`/debate?${params.toString()}`);
   currentSource = source;
 
   source.onmessage = (event) => {
