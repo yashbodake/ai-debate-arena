@@ -153,16 +153,32 @@ side. Does NOT change the deployer-controls-the-key constraint (AGENT.md §2.2).
 
 ## Phase 4 — Deployment (Spec 04)
 
-- [ ] HF Space created (Docker SDK)
-- [ ] `Dockerfile` builds cleanly and listens on port 7860
-- [ ] `requirements.txt` finalized and confirmed installing cleanly in the Docker build
-- [ ] FastAPI serves both the `/debate` SSE endpoint and static frontend files correctly
-- [ ] Groq API key added as HF Space "Repository secret" (not hardcoded)
-- [ ] App confirmed working on the actual public Space URL — full browser test, not just curl
-- [ ] Cold-start behavior checked (free CPU Spaces sleep — confirm container wakes up
-      cleanly and SSE doesn't hang on a mid-restart request)
+- [x] HF Space created: **https://huggingface.co/spaces/yasbodake4/ai-debate-arena**
+      (SDK = Docker, CPU basic free tier, public)
+- [x] `Dockerfile` builds cleanly and listens on port 7860 — built and reached
+      `RUNNING` in ~90s on first push, zero errors
+- [x] `requirements.txt` pinned to exact versions (Spec 04 §5), installs cleanly
+      in the HF Docker build
+- [x] FastAPI serves both the `/debate` SSE endpoint and static frontend files —
+      verified via curl against the live URL (`/`, `/style.css`, `/script.js`,
+      `/models`, `/debate` all return correct content types + 200s)
+- [x] Provider secrets added as HF Repository secrets (not hardcoded):
+      `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `MODEL_NAME` — set to Cerebras values
+- [x] **App confirmed working on the public Space URL** — real 5-turn debate on
+      "Is remote work better than office work?" streamed correctly end-to-end,
+      verdict declared "Winner: Debater For" with reasoning. Live URL:
+      **https://yasbodake4-ai-debate-arena.hf.space**
+- [ ] Cold-start behavior: not yet observed (Space just deployed). Free CPU Spaces
+      sleep after inactivity — first request after sleep takes ~30s to wake.
+      Frontend's `onerror` handler covers a dropped connection cleanly (Spec 03 §4).
 
-**Deviations:** (none yet)
+**Deviations:**
+- **2026-07-06 — Deployed via direct git push, not GitHub sync.** Spec 04 §8 step 2
+  mentions connecting to GitHub; instead we cloned the HF Space repo and pushed
+  directly. Same end result (HF builds from the Dockerfile); the GitHub repo
+  remains the source of truth for code, HF is the deployment target.
+- **2026-07-06 — HF account is `yasbodake4`, not `yashbodake`** (different from
+  GitHub). Cosmetic, just noting so the URL isn't surprising.
 
 ---
 
@@ -180,9 +196,10 @@ side. Does NOT change the deployer-controls-the-key constraint (AGENT.md §2.2).
 
 ## Overall Status
 
-**Current phase:** Phase 3 + v1.1 feature complete; pending manual browser test by user
-**Blockers:** None (user needs to open localhost:7860 in a browser to close Phase 3)
-**Next action:** User does a browser test (incl. per-side model dropdowns); then Phase 4 (deployment)
+**Current phase:** Phase 4 complete — LIVE on HF Spaces 🎉
+**Live URL:** https://yasbodake4-ai-debate-arena.hf.space
+**Blockers:** None
+**Next action:** Phase 5 polish + rotate exposed secrets (Cerebras key, HF token)
 
 ### Logged deviation (pre-build, 2026-07-06): LLM provider made provider-agnostic
 
