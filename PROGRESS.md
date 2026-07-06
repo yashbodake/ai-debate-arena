@@ -33,14 +33,29 @@ the end.
 
 ## Phase 1 — Agents & Crew (Spec 01)
 
-- [ ] `Debater For` agent defined with role/goal/backstory
-- [ ] `Debater Against` agent defined with role/goal/backstory
-- [ ] `Moderator/Judge` agent defined with role/goal/backstory
-- [ ] All three agents confirmed running against the deployer's chosen provider
-      (shared `LLM` from `config.py` → `OPENAI_BASE_URL` env; documented default Groq)
-- [ ] Manual smoke test: run one full debate on a sample topic via CLI/script (no UI yet)
+- [x] `Debater For` agent defined with role/goal/backstory (`backend/agents.py:debater_for`)
+- [x] `Debater Against` agent defined with role/goal/backstory (`backend/agents.py:debater_against`)
+- [x] `Moderator/Judge` agent defined with role/goal/backstory (`backend/agents.py:moderator`)
+- [x] All three agents confirmed running against the deployer's chosen provider —
+      shared `LLM` from `config.py` (built from `OPENAI_BASE_URL` / `OPENAI_API_KEY` /
+      `MODEL_NAME`). Verified working against **Cerebras** (`zai-glm-4.7`), not Groq —
+      see Deviations. Provider swap was .env-only, zero code change.
+- [x] Manual smoke test PASSED: full 5-turn debate via `smoke_test.py` on the sample
+      topic "Is remote work better than office work?" — For/Against/For/Against turns
+      each rebutted prior points; moderator verdict summarized both sides and declared
+      a reasoned tie. 72.3s total (~14s/turn).
 
-**Deviations:** (none yet)
+**Deviations:**
+- **2026-07-06 — Running on Cerebras, not Groq.** The documented default in
+  `.env.example`/AGENT.md is Groq `llama-3.3-70b-versatile`, but the deployer (project
+  owner) is running with a Cerebras API key against `zai-glm-4.7`. This is exactly the
+  provider-agnostic path the design was built for — `.env` change only, no code change.
+  Cerebras account has access to: `zai-glm-4.7`, `gpt-oss-120b`, `gemma-4-31b`.
+- **2026-07-06 — Latency above Spec 02 §4 target.** 5 turns took 72.3s (~14s/turn)
+  vs. the spec's ~20-30s total target (calibrated for Groq, which is faster than
+  Cerebras for this model). Acceptable for a live demo (each turn streams as generated,
+  so perceived wait is per-turn, not 72s upfront), but worth re-measuring on Groq
+  before Phase 4 deployment.
 
 ---
 
@@ -101,9 +116,9 @@ the end.
 
 ## Overall Status
 
-**Current phase:** Phase 0 nearly complete (env + deps done; only `.env` key entry remains)
-**Blockers:** None (user needs to add their Groq key to `.env` to run anything)
-**Next action:** Add Groq key to `.env`, then begin Phase 1 (agents & crew)
+**Current phase:** Phase 1 complete — agents verified with a real 5-turn debate
+**Blockers:** None
+**Next action:** Begin Phase 2 (orchestration generator + FastAPI/SSE layer)
 
 ### Logged deviation (pre-build, 2026-07-06): LLM provider made provider-agnostic
 
