@@ -61,14 +61,32 @@ the end.
 
 ## Phase 2 — Orchestration & Turn Flow (Spec 02)
 
-- [ ] Turn-order controller function written (fixed sequence, not autonomous delegation)
-- [ ] Each turn is a separate Task + Crew kickoff (not one giant crew run) so it can be
-      yielded incrementally to the UI
-- [ ] Context passing confirmed: each new turn's agent receives prior turns as context
-- [ ] Turn limit enforced (default: 2 rounds each side + 1 moderator verdict = 5 turns)
-- [ ] Verified total token/request usage per debate stays well within Groq free-tier limits
+- [x] Turn-order controller function written — `backend/crew.py:run_debate` is a
+      generator over a fixed For/Against/For/Against/Moderator sequence (no delegation)
+- [x] Each turn is a separate Task + fresh single-task Crew kickoff — yields after
+      each turn completes (not one giant crew run)
+- [x] Context passing confirmed — transcript accumulates as plain text and each
+      later turn's prompt includes all prior turns; verified by the live test (turns
+      explicitly rebut prior points)
+- [x] Turn limit enforced — `NUM_DEBATE_ROUNDS=2` in `config.py` → 4 debate turns +
+      1 verdict = 5 total
+- [x] Per-turn streaming verified live via SSE — `curl /debate?topic=...` returns
+      each turn as a separate `data:` event, ending with `event: done`. Server boots
+      cleanly, empty/whitespace topics get a friendly System turn (no agent call),
+      and a real 5-turn debate on "Should AI replace human teachers?" streamed
+      correctly and terminated cleanly.
+- [x] Boundary contract (Spec 02 §5) honored — `crew.py` has zero FastAPI/HTTP/json
+      imports; all SSE formatting lives in `main.py`. `smoke_test.py` now consumes
+      the same `run_debate()` generator (single source of truth).
+- [x] Error handling (Spec 05 §2) wired — per-turn try/except yields a friendly
+      System turn and stops; the SSE handler wraps the whole stream so a mid-stream
+      exception still sends `event: done` rather than hanging the browser.
+- [ ] Token/request budget: not yet re-measured (running on Cerebras, not Groq —
+      see Phase 1 deviation). 5 requests/debate is structurally within any provider's
+      limits; re-confirm latency + rate limits on the deployment provider in Phase 4.
 
-**Deviations:** (none yet)
+**Deviations:** (none beyond the Phase 1 Cerebras-vs-Groq deviation, which carries
+forward — latency still ~70s/5 turns)
 
 ---
 
@@ -116,9 +134,9 @@ the end.
 
 ## Overall Status
 
-**Current phase:** Phase 1 complete — agents verified with a real 5-turn debate
+**Current phase:** Phase 2 complete — SSE streaming verified live with curl
 **Blockers:** None
-**Next action:** Begin Phase 2 (orchestration generator + FastAPI/SSE layer)
+**Next action:** Begin Phase 3 (frontend: EventSource client + GSAP animations)
 
 ### Logged deviation (pre-build, 2026-07-06): LLM provider made provider-agnostic
 
