@@ -151,6 +151,39 @@ side. Does NOT change the deployer-controls-the-key constraint (AGENT.md §2.2).
 
 ---
 
+## Feature v1.2 — Persona redesign + scorecard verdict
+
+Added after Phase 4. User feedback: "debate feels too AI, winner is too easy to
+call, not enjoyable." Root cause was the agent prompts, not the architecture.
+
+Three problems, three fixes (all in `agents.py` + `crew.py:make_verdict_task`):
+
+1. **Essay register → conversational.** Both debaters now get an explicit
+   "HOW YOU SPEAK" directive banning essay transitions (Furthermore, Moreover, In
+   conclusion...) and enforcing contractions, direct address, varied openings,
+   and 2-4 sentence turns. #1 lever for "sounds human."
+2. **Identical voices → distinct personas.** For = "The Convincer" (warm,
+   plain-spoken, builds the case with analogies); Against = "The Cross-Examiner"
+   (sharp, surgical, pokes holes, asks pointed questions). Equally competent —
+   differ in *voice* only, preserving the Spec 01 §2 fairness principle.
+3. **Decisive verdict → scorecard.** Moderator now scores BOTH sides on Logic /
+   Evidence / Persuasion (each /10), gives totals, and is explicitly told close
+   calls and ties are expected on subjective topics. Verified output: 24/30 vs
+   23/30, "Close Call for Debater For" — razor-thin, credible.
+
+- [x] `agents.py`: distinct personas + shared `_HUMAN_VOICE_RULES` directive
+- [x] `crew.py:make_verdict_task`: expected_output rewritten for scorecard format
+- [x] Smoke test verified: turns sound human, distinct voices, verdict is a close
+      scorecard (24 vs 23). All 7 E2E tests still pass (speaker sequence unchanged).
+
+**Deviations:**
+- **2026-07-06 — Spec 01 §1/§2 agent backstories superseded.** The v1.2 personas
+  intentionally break the "near-symmetry between For/Against" rule — but preserve
+  its *intent* (equal competence) by differing in voice, not skill. Spec 01 is now
+  stale on the persona details; `agents.py` is the source of truth.
+
+---
+
 ## Phase 4 — Deployment (Spec 04)
 
 - [x] HF Space created: **https://huggingface.co/spaces/yasbodake4/ai-debate-arena**

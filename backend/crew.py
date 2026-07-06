@@ -42,17 +42,27 @@ def make_debate_task(agent, topic: str, transcript: list[str], turn_number: int)
 
 def make_verdict_task(judge, topic: str, transcript: list[str]) -> Task:
     """The moderator's structurally-different final task (Spec 02 §3): receives the
-    FULL transcript and produces a verdict, not another debate turn."""
+    FULL transcript and produces a scored verdict, not another debate turn.
+
+    v1.2: the expected output is now a scorecard (Logic/Evidence/Persuasion, each
+    out of 10, for both sides) + totals + a winner-or-tie call. This matches the
+    moderator's redesigned backstory and makes close calls happen naturally.
+    """
     return Task(
         description=(
             f"Debate topic: {topic}\n\n"
             f"Full transcript:\n{chr(10).join(transcript)}\n\n"
-            "Deliver your final verdict now."
+            "Deliver your final verdict now. Score BOTH sides on Logic, Evidence, "
+            "and Persuasion (each out of 10), give the totals, then call a winner "
+            "OR an explicit tie if the margin is within 1 point. Add 2-3 sentences "
+            "of honest reasoning about why it was close (or wasn't)."
         ),
         agent=judge,
         expected_output=(
-            "One-sentence summary of each side's strongest point, then a winner "
-            "(or explicit tie) with 2-3 sentences of reasoning."
+            "A scorecard with three dimensions (Logic, Evidence, Persuasion) scored "
+            "out of 10 for EACH side, the totals, a winner-or-tie call, and 2-3 "
+            "sentences of reasoning. Close calls and ties are expected on subjective "
+            "topics — don't manufacture a decisive winner."
         ),
     )
 
