@@ -92,16 +92,30 @@ forward — latency still ~70s/5 turns)
 
 ## Phase 3 — Frontend (Spec 03)
 
-- [ ] `frontend/index.html` built: topic input, "Start Debate" button, transcript container
-- [ ] `script.js` wired to `/debate` SSE endpoint via `EventSource`
-- [ ] Turns rendered as they arrive via SSE events, not one final dump
-- [ ] GSAP entrance animations applied per speaker (For/Against/Moderator) — actual
-      animation polish done via code-assistant + GSAP + UI/UX skill, per AGENT.md note
-- [ ] Basic styling: visually distinguish "For" vs "Against" vs "Moderator" turns
-- [ ] Loading/status indicator while a turn is being generated
-- [ ] Manual test: full debate visible end-to-end in local browser against local FastAPI
+- [x] `frontend/index.html` built: topic input, "Start Debate" button, transcript
+      container — uses the exact IDs/hook points from Spec 03 §2
+- [x] `script.js` wired to `/debate` SSE endpoint via `EventSource` (GET + query
+      param per Spec 03 §3; EventSource's native GET-only constraint respected)
+- [x] Turns rendered as they arrive via SSE `onmessage` events (not one final dump);
+      `event: done` closes the stream, `onerror` shows a friendly "Connection lost"
+- [x] GSAP entrance animations per speaker: For slides from left, Against from right,
+      Moderator fades+scales (graceful no-op if GSAP CDN is blocked)
+- [x] Basic styling: For=green, Against=red, Moderator=purple, System=amber —
+      visually distinguished via `data-speaker` attribute + colored left border
+- [x] Loading/status indicator: pulsing dot + "Debate in progress…" while streaming
+- [ ] **Manual browser test pending (user-side).** Server-side verification done:
+      all 3 files serve with correct content types (HTML/CSS/JS, HTTP 200), JS
+      braces/parens balanced, and the speaker labels emitted by `crew.py` match the
+      `data-speaker` CSS selectors + JS animation branches exactly. But a real
+      browser test (open `http://localhost:7860`, submit a topic, watch turns
+      animate in) is still needed to fully close Phase 3 — see Next action.
 
-**Deviations:** (none yet)
+**Deviations:**
+- **2026-07-06 — No UI/UX skill used.** Spec 03 mentions a UI/UX skill applied via
+  the code-assistant for visual polish. None available in this environment, so
+  styling was written directly as plain CSS (dark theme, per-speaker colors,
+  responsive single breakpoint per Spec 03 §5). Functional and clean, but not
+  "designed" in the polished sense — easy to iterate later.
 
 ---
 
@@ -134,9 +148,9 @@ forward — latency still ~70s/5 turns)
 
 ## Overall Status
 
-**Current phase:** Phase 2 complete — SSE streaming verified live with curl
-**Blockers:** None
-**Next action:** Begin Phase 3 (frontend: EventSource client + GSAP animations)
+**Current phase:** Phase 3 code complete — pending manual browser test by user
+**Blockers:** None (user needs to open localhost:7860 in a browser to close Phase 3)
+**Next action:** User runs the server locally and does a browser test; then Phase 4 (deployment)
 
 ### Logged deviation (pre-build, 2026-07-06): LLM provider made provider-agnostic
 

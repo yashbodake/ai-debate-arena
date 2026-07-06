@@ -1,0 +1,152 @@
+/* AI Debate Arena — plain CSS, no framework (AGENT.md §2.3).
+   Visually distinguishes For / Against / Moderator per Spec 03 §4 checklist. */
+
+:root {
+  --bg: #0f1115;
+  --panel: #181b22;
+  --panel-border: #272b35;
+  --text: #e7e9ee;
+  --text-dim: #9aa0ab;
+  --accent: #6c8cff;
+  --for: #3fb950;        /* green — the "pro" side */
+  --against: #f85149;    /* red — the "con" side */
+  --moderator: #d2a8ff;  /* purple — the judge */
+  --system: #d29922;     /* amber — errors / prompts */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+}
+
+#app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+}
+
+header { text-align: center; margin-bottom: 2rem; }
+
+h1 {
+  margin: 0 0 .35rem;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  letter-spacing: -.02em;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: .98rem;
+}
+
+/* --- Form (hook: #topic-form, #start-btn per Spec 03 §2) --- */
+#topic-form {
+  display: flex;
+  gap: .5rem;
+  margin-bottom: 1.5rem;
+}
+
+#topic-input {
+  flex: 1;
+  padding: .8rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 1rem;
+}
+#topic-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+#start-btn {
+  padding: .8rem 1.4rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .08s ease, opacity .2s ease;
+}
+#start-btn:hover:not(:disabled) { transform: translateY(-1px); }
+#start-btn:active:not(:disabled) { transform: translateY(0); }
+#start-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* --- Status indicator --- */
+#status {
+  text-align: center;
+  color: var(--text-dim);
+  margin-bottom: 1.5rem;
+  font-size: .95rem;
+}
+#status::before {
+  content: "";
+  display: inline-block;
+  width: .6rem; height: .6rem;
+  margin-right: .4rem;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1s ease-in-out infinite alternate;
+  vertical-align: middle;
+}
+@keyframes pulse { from { opacity: .3; } to { opacity: 1; } }
+
+.hidden { display: none; }
+
+/* --- Transcript container (hook: #transcript) --- */
+#transcript { display: flex; flex-direction: column; gap: 1rem; }
+
+.turn {
+  padding: 1.1rem 1.25rem;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-left: 4px solid var(--text-dim);
+  border-radius: 12px;
+}
+
+.turn strong {
+  display: block;
+  margin-bottom: .4rem;
+  font-size: .82rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  opacity: .85;
+}
+
+.turn p { margin: 0; white-space: pre-wrap; }
+
+/* Per-speaker cues (data-speaker attribute set in script.js).
+   Spec 03 §2: For = green, Against = red, Moderator = purple. */
+.turn[data-speaker="Debater For"]     { border-left-color: var(--for); }
+.turn[data-speaker="Debater For"] strong     { color: var(--for); }
+
+.turn[data-speaker="Debater Against"] { border-left-color: var(--against); }
+.turn[data-speaker="Debater Against"] strong { color: var(--against); }
+
+.turn[data-speaker="Moderator — Final Verdict"],
+.turn[data-speaker^="Moderator"] {
+  border-left-color: var(--moderator);
+  background: linear-gradient(180deg, rgba(210,168,255,.06), var(--panel));
+}
+.turn[data-speaker="Moderator — Final Verdict"] strong,
+.turn[data-speaker^="Moderator"] strong { color: var(--moderator); }
+
+.turn[data-speaker="System"] {
+  border-left-color: var(--system);
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+/* --- Basic responsive (Spec 03 §5: minimal breakpoints only) --- */
+@media (max-width: 540px) {
+  #topic-form { flex-direction: column; }
+  #start-btn { width: 100%; }
+}

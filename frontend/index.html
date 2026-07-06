@@ -2,11 +2,37 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Debate Arena</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- GSAP loaded per Spec 03 §2: directly via script tag, no build step -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
-  <h1>🎤 AI Debate Arena</h1>
-  <p>Frontend stub. Phase 3 will replace this with the real UI (topic input, EventSource client, GSAP animations).</p>
-  <p>The backend SSE endpoint <code>/debate?topic=...</code> is live and can be tested with curl.</p>
+  <main id="app">
+    <header>
+      <h1>🎤 AI Debate Arena</h1>
+      <p class="subtitle">Type a topic. Two AIs argue it out. A judge delivers the verdict.</p>
+    </header>
+
+    <!-- Spec 03 §2 hook points — do NOT rename these IDs without updating script.js -->
+    <form id="topic-form">
+      <input
+        type="text"
+        id="topic-input"
+        placeholder="e.g. Is remote work better than office work?"
+        maxlength="500"
+        autocomplete="off"
+        required
+      >
+      <button type="submit" id="start-btn">Start Debate</button>
+    </form>
+
+    <div id="status" class="hidden">Debate in progress…</div>
+
+    <div id="transcript" aria-live="polite"></div>
+  </main>
+
+  <script src="script.js"></script>
 </body>
 </html>
