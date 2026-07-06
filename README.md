@@ -1,3 +1,13 @@
+---
+title: AI Debate Arena
+emoji: 🎤
+colorFrom: blue
+colorTo: red
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # AI Debate Arena
 
 Type any topic, watch two AI debaters argue it out live, get a judged verdict.

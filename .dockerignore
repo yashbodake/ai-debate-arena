@@ -1,0 +1,16 @@
+# Keep the Docker image lean + keep secrets out (Spec 04 §6).
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+__pycache__/
+*.pyc
+*.log
+/tmp/
+smoke_test.py
+e2e_test.py
+Dockerfile
+.dockerignore

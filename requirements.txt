@@ -1,10 +1,8 @@
-# AI Debate Arena — Python dependencies
-# Spec 04 §5: pin exact versions once local dev is confirmed working, so HF Spaces
-# Docker builds don't break on a floating-version change. Until then, this list is
-# intentionally unpinned for easy iteration. Requires Python >=3.11, <3.14
-# (CrewAI itself requires >=3.10, <3.14; AGENT.md §3 targets 3.11+).
-
-fastapi
-uvicorn[standard]
-crewai
-python-dotenv
+# AI Debate Arena — Python dependencies.
+# Pinned to exact versions verified working (Spec 04 §5: pin once local dev is
+# confirmed, to avoid "works locally, breaks on Space" build failures).
+# Requires Python >=3.11, <3.14 (CrewAI constraint; AGENT.md §3 targets 3.11+).
+fastapi==0.139.0
+uvicorn[standard]==0.50.2
+crewai==1.15.1
+python-dotenv==1.2.2
