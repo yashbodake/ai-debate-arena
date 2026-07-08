@@ -17,6 +17,13 @@
 
     <!-- Spec 03 §2 hook points — do NOT rename these IDs without updating script.js -->
     <form id="topic-form">
+      <!-- v1.3: mode toggle. Default = open-ended (user judges when ready).
+           Classic = fixed 5-turn + auto-verdict (the original v1.0 behavior). -->
+      <div id="mode-toggle" role="radiogroup" aria-label="Debate mode">
+        <label><input type="radio" name="mode" value="open" checked> Open-ended</label>
+        <label><input type="radio" name="mode" value="classic"> Classic (5 turns)</label>
+      </div>
+
       <input
         type="text"
         id="topic-input"
@@ -51,6 +58,16 @@
     </form>
 
     <div id="status" class="hidden">Debate in progress…</div>
+
+    <!-- v1.3: open-ended controls. Hidden until an open-ended debate pauses.
+         "Another round" = GET /debate/{sid}/next (one more For+Against).
+         "Judge it now"  = POST /debate/{sid}/verdict (user ends it).
+         "Stop"          = DELETE the session and reset the UI. -->
+    <div id="open-controls" class="hidden">
+      <button type="button" id="next-round-btn">Another round</button>
+      <button type="button" id="judge-btn">Judge it now</button>
+      <button type="button" id="stop-btn">Stop</button>
+    </div>
 
     <div id="transcript" aria-live="polite"></div>
   </main>

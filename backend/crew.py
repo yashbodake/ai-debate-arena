@@ -155,3 +155,40 @@ def run_debate(
         return
     transcript.append(f"Moderator: {verdict}")
     yield ("Moderator — Final Verdict", verdict)
+
+
+# --- v1.3: open-ended helpers -------------------------------------------------
+# These are used by the session-based /debate/start, /stream, /next, /verdict
+# endpoints. run_debate (classic 5-turn) above is unchanged and remains the path
+# the smoke test + existing E2E tests exercise.
+
+def run_single_turn(
+    side: str,
+    topic: str,
+    transcript: list[str],
+    turn_number: int,
+    model_override: str | None = None,
+) -> str:
+    """Run exactly one debate turn for `side` ("for" or "against") and return its text.
+
+    Used by the open-ended mode: each /stream or /next call invokes this once per
+    side. The transcript is read for context and the produced turn is the caller's
+    responsibility to append (sessions.py owns the transcript list).
+    """
+    agent = debater_for(model_override) if side == "for" else debater_against(model_override)
+    label = "Debater For" if side == "for" else "Debater Against"
+    task = make_debate_task(agent, topic, list(transcript), turn_number=turn_number)
+    text = _run_one_turn(agent, task)
+    return f"{label}: {text}"  # caller stores this in transcript
+
+
+def run_verdict(topic: str, transcript: list[str]) -> str:
+    """Run the moderator on the accumulated transcript and return the verdict text.
+
+    Extracted from run_debate's tail so the open-ended /verdict endpoint can call
+    it directly. Builds a fresh moderator agent (always default model per the v1.1
+    design choice) and runs the scorecard verdict task.
+    """
+    judge = moderator()
+    task = make_verdict_task(judge, topic, list(transcript))
+    return _run_one_turn(judge, task)

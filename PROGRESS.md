@@ -184,6 +184,47 @@ Three problems, three fixes (all in `agents.py` + `crew.py:make_verdict_task`):
 
 ---
 
+## Feature v1.3 — Open-ended debate mode (user chooses when to judge)
+
+Added after v1.2. User feedback: "the judge is too eager to declare something —
+the debate should run continuously until the user says declare the results."
+
+Architectural shift: moved from "one HTTP stream = one full debate" to a stateful
+session. One connection streams turns, a separate one triggers the verdict. This
+was required because EventSource is GET-only (Spec 03 §4) — there's no upstream
+channel to push a "judge now" signal into an already-running GET stream.
+
+Two modes (UI toggle, default = open-ended):
+- **Open-ended:** turns alternate For/Against, stream pauses after each round
+  (`event:paused`), user clicks "Another round" or "Judge it now". 20-turn hard
+  cap auto-triggers the verdict (prevents quota burn from a forgotten tab).
+- **Classic (5 turns):** the original v1.0 flow, byte-for-byte unchanged. The
+  smoke test + all 7 original E2E tests exercise exactly this path — zero
+  regression.
+
+- [x] `backend/sessions.py` (NEW): in-memory Session store, per-session locks,
+      30-min TTL cleanup, `MAX_DEBATE_TURNS=20`
+- [x] `backend/crew.py`: extracted `run_single_turn()` + `run_verdict()` helpers
+      (open-ended endpoints use these; `run_debate` classic generator unchanged)
+- [x] `backend/main.py`: 4 new routes — `POST /debate/start`, `GET /debate/{sid}/stream`,
+      `GET /debate/{sid}/next`, `POST /debate/{sid}/verdict`, `DELETE /debate/{sid}`.
+      Classic `/debate` untouched.
+- [x] Frontend: mode toggle (radio), 3 open-ended control buttons (Another round /
+      Judge it now / Stop), `script.js` branches on mode — classic path preserved
+- [x] E2E: 3 new tests (lifecycle, verdict-on-empty, 20-turn cap). All 10 pass.
+
+**Deviations:**
+- **2026-07-06 — Breaks Spec 02 §2 "5 turns total, deliberately short".** Open-ended
+  mode has no fixed turn count (capped at 20). Classic mode still honors the 5-turn
+  spec. Spec 02 §2 now describes classic mode only.
+- **2026-07-06 — Stateful server (in-memory sessions).** AGENT.md §2.6 says "no
+  persistence of user data" — sessions are process-local RAM, wiped on restart.
+  This respects the spirit (no DB, nothing survives a restart) while enabling the
+  user-controlled flow. A server restart kills in-flight open-ended debates;
+  acceptable for a demo.
+
+---
+
 ## Phase 4 — Deployment (Spec 04)
 
 - [x] HF Space created: **https://huggingface.co/spaces/yasbodake4/ai-debate-arena**

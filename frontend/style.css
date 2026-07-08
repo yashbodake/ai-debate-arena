@@ -205,3 +205,43 @@ h1 {
 
 /* When JS determines the provider exposes no model list, it adds .hidden to
    #advanced so the collapsed panel doesn't tease a feature that can't work. */
+
+/* --- v1.3: mode toggle + open-ended controls --- */
+#mode-toggle {
+  display: flex;
+  gap: 1.2rem;
+  margin-bottom: .8rem;
+  font-size: .9rem;
+}
+#mode-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+#mode-toggle input { accent-color: var(--accent); }
+#mode-toggle label:has(input:checked) { color: var(--text); }
+
+#open-controls {
+  display: flex;
+  gap: .5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+#open-controls button {
+  padding: .6rem 1.1rem;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: .92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform .08s ease, border-color .15s ease;
+}
+#open-controls button:hover { transform: translateY(-1px); border-color: var(--accent); }
+#judge-btn { background: var(--moderator); color: #1a1320; border-color: var(--moderator); font-weight: 600; }
+#stop-btn { color: var(--against); }

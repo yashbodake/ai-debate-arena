@@ -25,6 +25,7 @@ import json
 import sys
 import time
 from urllib.request import Request, urlopen
+from urllib.error import URLError
 
 BASE_URL = "http://127.0.0.1:7860"
 VALID_SPEAKERS = {
@@ -76,6 +77,41 @@ def stream_debate(topic: str, model_for: str | None = None, model_against: str |
 def _urlencode(s: str) -> str:
     from urllib.parse import quote
     return quote(s, safe="")
+
+
+# --- v1.3: open-ended session helpers ----------------------------------------
+
+def _post_json(url: str, body: dict) -> tuple[int, dict]:
+    """POST JSON, return (status_code, parsed_json)."""
+    data = json.dumps(body).encode("utf-8")
+    req = Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urlopen(req, timeout=180) as r:
+            return r.status, json.loads(r.read().decode("utf-8"))
+    except URLError as e:  # 4xx/5xx come back as URLError via urlopen
+        code = getattr(e, "code", 0)
+        try:
+            payload = json.loads(e.read().decode("utf-8")) if hasattr(e, "read") else {}
+        except Exception:
+            payload = {}
+        return code, payload
+
+
+def stream_session(url: str):
+    """Consume a /debate/{sid}/stream or /next SSE stream, yield (event, data)."""
+    req = Request(url, headers={"Accept": "text/event-stream"})
+    with urlopen(req, timeout=300) as resp:
+        event, data_lines = "", []
+        for raw in resp:
+            line = raw.decode("utf-8").rstrip("\n")
+            if line == "":
+                if data_lines:
+                    yield (event or "message", json.loads("\n".join(data_lines)))
+                event, data_lines = "", []
+            elif line.startswith("event:"):
+                event = line[len("event:"):].strip()
+            elif line.startswith("data:"):
+                data_lines.append(line[len("data:"):].strip())
 
 
 def assert_true(cond, msg):
@@ -220,6 +256,83 @@ def test_invalid_model():
     print(f"      PASS — bogus model id → '{data_turns[0]['text'][:60]}...' + done, no agent call")
 
 
+# --- v1.3: open-ended mode tests ---------------------------------------------
+
+def test_open_lifecycle():
+    """Full open-ended lifecycle: start → stream 2 turns + paused → next 2 more → verdict."""
+    print("[8/10] open-ended lifecycle (start → stream → next → verdict)...")
+    code, body = _post_json(f"{BASE_URL}/debate/start", {"topic": "Is curiosity more important than knowledge?"})
+    assert_true(code == 200 and "session_id" in body, f"start failed: HTTP {code}, {body}")
+    sid = body["session_id"]
+
+    # Initial stream: first For+Against round, then pause.
+    events = list(stream_session(f"{BASE_URL}/debate/{sid}/stream"))
+    event_names = [e for e, _ in events]
+    turns1 = [d for e, d in events if e == "turn"]
+    assert_true("paused" in event_names, f"initial stream should pause; got events {event_names}")
+    assert_true(len(turns1) == 2, f"expected 2 turns in first round, got {len(turns1)}")
+    assert_true(turns1[0]["speaker"] == "Debater For", "round 1 should start with For")
+    print(f"      round 1: {len(turns1)} turns, paused ✓")
+
+    # One more round via /next.
+    events = list(stream_session(f"{BASE_URL}/debate/{sid}/next"))
+    turns2 = [d for e, d in events if e == "turn"]
+    assert_true(len(turns2) == 2, f"expected 2 more turns, got {len(turns2)}")
+    print(f"      round 2: {len(turns2)} more turns, paused ✓")
+
+    # User judges.
+    code, verdict = _post_json(f"{BASE_URL}/debate/{sid}/verdict", {})
+    assert_true(code == 200, f"verdict HTTP {code}: {verdict}")
+    assert_true(verdict.get("speaker") == "Moderator — Final Verdict",
+                f"expected Moderator verdict, got {verdict.get('speaker')!r}")
+    assert_true(len(verdict.get("text", "")) > 50, "verdict text too short")
+    print(f"      verdict: {verdict['text'][:60]}... ✓")
+
+    # Subsequent /next on a judged session should 409 (conflict).
+    try:
+        urlopen(f"{BASE_URL}/debate/{sid}/next", timeout=30)
+        assert_true(False, "expected /next on judged session to 409")
+    except URLError as e:
+        assert_true(getattr(e, "code", 0) == 409, f"expected 409, got {getattr(e, 'code', '?')}")
+    print("      PASS — full open-ended lifecycle (start → stream → next → verdict + 409 after)")
+
+
+def test_open_verdict_on_empty():
+    """Judging before any turns yields a friendly System message, no moderator call."""
+    print("[9/10] open-ended verdict-on-empty (judge before any turns)...")
+    code, body = _post_json(f"{BASE_URL}/debate/start", {"topic": "any topic"})
+    sid = body["session_id"]
+    code, data = _post_json(f"{BASE_URL}/debate/{sid}/verdict", {})
+    assert_true(code == 200, f"verdict-on-empty HTTP {code}")
+    assert_true(data.get("speaker") == "System", f"expected System speaker, got {data.get('speaker')!r}")
+    assert_true("no debate" in data.get("text", "").lower() or "at least one" in data.get("text", "").lower(),
+                f"unexpected empty-verdict text: {data.get('text')!r}")
+    print(f"      PASS — '{data['text'][:60]}...' (no moderator call)")
+
+
+def test_open_turn_cap():
+    """The 20-turn cap auto-triggers the verdict instead of running forever."""
+    print("[10/10] open-ended 20-turn cap auto-verdict (~60-90s, many LLM calls)...")
+    code, body = _post_json(f"{BASE_URL}/debate/start", {"topic": "Does free will exist?"})
+    sid = body["session_id"]
+    total_turns = 0
+    got_verdict = False
+    # Initial round
+    for event, data in stream_session(f"{BASE_URL}/debate/{sid}/stream"):
+        if event == "turn": total_turns += 1
+        if event == "verdict": got_verdict = True
+    # Keep requesting rounds until the cap fires or we hit a safety max
+    for _ in range(11):  # 22 more turns requested = well past the 20 cap
+        if got_verdict:
+            break
+        for event, data in stream_session(f"{BASE_URL}/debate/{sid}/next"):
+            if event == "turn": total_turns += 1
+            if event == "verdict": got_verdict = True
+    assert_true(got_verdict, f"expected auto-verdict at 20 turns; got {total_turns} turns, no verdict")
+    assert_true(total_turns == 20, f"expected exactly 20 turns before cap verdict, got {total_turns}")
+    print(f"      PASS — capped at 20 turns, auto-verdict fired (no overrun)")
+
+
 def main():
     print(f"=== E2E test against {BASE_URL} ===\n")
     # Reachability guard — gives a clearer error than a stack trace from urlopen.
@@ -241,6 +354,9 @@ def main():
         available = test_models_endpoint()
         test_per_side_models(available)
         test_invalid_model()
+        test_open_lifecycle()
+        test_open_verdict_on_empty()
+        test_open_turn_cap()
     except AssertionError as e:
         print(f"\n!!! E2E TEST FAILED: {e}", file=sys.stderr)
         return 1
